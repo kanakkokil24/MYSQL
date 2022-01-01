@@ -1,0 +1,90 @@
+Table: Product
+
++---------------+---------+
+| Column Name   | Type    |
++---------------+---------+
+| product_id    | int     |
+| product_name  | varchar |
++---------------+---------+
+product_id is the primary key for this table.
+product_name is the name of the product.
+ 
+
+Table: Sales
+
++---------------------+---------+
+| Column Name         | Type    |
++---------------------+---------+
+| product_id          | int     |
+| period_start        | date    |
+| period_end          | date    |
+| average_daily_sales | int     |
++---------------------+---------+
+product_id is the primary key for this table. 
+period_start and period_end indicate the start and end date for the sales period, and both dates are inclusive.
+The average_daily_sales column holds the average daily sales amount of the items for the period.
+The dates of the sales years are between 2018 to 2020.
+ 
+
+Write an SQL query to report the total sales amount of each item for each year, with corresponding product_name, product_id, product_name, and report_year.
+
+Return the result table ordered by product_id and report_year.
+
+The query result format is in the following example.
+
+ 
+
+Example 1:
+
+Input: 
+Product table:
++------------+--------------+
+| product_id | product_name |
++------------+--------------+
+| 1          | LC Phone     |
+| 2          | LC T-Shirt   |
+| 3          | LC Keychain  |
++------------+--------------+
+Sales table:
++------------+--------------+-------------+---------------------+
+| product_id | period_start | period_end  | average_daily_sales |
++------------+--------------+-------------+---------------------+
+| 1          | 2019-01-25   | 2019-02-28  | 100                 |
+| 2          | 2018-12-01   | 2020-01-01  | 10                  |
+| 3          | 2019-12-01   | 2020-01-31  | 1                   |
++------------+--------------+-------------+---------------------+
+Output: 
++------------+--------------+-------------+--------------+
+| product_id | product_name | report_year | total_amount |
++------------+--------------+-------------+--------------+
+| 1          | LC Phone     |    2019     | 3500         |
+| 2          | LC T-Shirt   |    2018     | 310          |
+| 2          | LC T-Shirt   |    2019     | 3650         |
+| 2          | LC T-Shirt   |    2020     | 10           |
+| 3          | LC Keychain  |    2019     | 31           |
+| 3          | LC Keychain  |    2020     | 31           |
++------------+--------------+-------------+--------------+
+Explanation: 
+LC Phone was sold for the period of 2019-01-25 to 2019-02-28, and there are 35 days for this period. Total amount 35*100 = 3500. 
+LC T-shirt was sold for the period of 2018-12-01 to 2020-01-01, and there are 31, 365, 1 days for years 2018, 2019 and 2020 respectively.
+LC Keychain was sold for the period of 2019-12-01 to 2020-01-31, and there are 31, 31 days for years 2019 and 2020 respectively.
+
+
+Solution #1
+
+WITH recursive ctc (product_id,period_start,period_end,average_daily_sales,start_1, end_1,p1,p2)AS(
+SELECT product_id, period_start,period_end,average_daily_sales, date_format(period_start,'%Y'),date_format(period_end,'%Y'),date_format(period_end,'%Y')-date_format(period_start,'%Y') p1 ,0 FROM Sales 
+UNION ALL
+SELECT product_id,period_start,period_end,average_daily_sales,start_1+1,end_1,p1,p2+1 from ctc where p2<p1 and start_1 < end_1
+)
+SELECT c.product_id,product_name,start_1 report_year , CASE 
+WHEN count(c.product_id) over (PARTITION BY c.product_id) = 1 AND p2 = 0 THEN (DATEDIFF(period_end,period_start)+1)*average_daily_sales
+WHEN count(c.product_id) over (PARTITION BY c.product_id) = 2 AND p2 = 0 THEN (DATEDIFF(concat(date_format(period_start,'%Y'),'-12-31'),period_start)+1)*average_daily_sales
+WHEN count(c.product_id) over (PARTITION BY c.product_id) = 2 AND p2 = 1 THEN (DATEDIFF(period_end,concat(date_format(period_end,'%Y'),'-01-01'))+1)*average_daily_sales
+WHEN count(c.product_id) over (PARTITION BY c.product_id) = 3 AND p2 = 0 THEN (DATEDIFF(concat(date_format(period_start,'%Y'),'-12-31'),period_start)+1)*average_daily_sales 
+WHEN count(c.product_id) over (PARTITION BY c.product_id) = 3 AND p2 = 1 THEN 365*average_daily_sales
+WHEN count(c.product_id) over (PARTITION BY c.product_id) = 3 AND p2 = 2 THEN (DATEDIFF(period_end,concat(date_format(period_end,'%Y'),'-01-01'))+1)*average_daily_sales
+END AS total_amount FROM ctc c
+LEFT JOIN Product p
+ON c.product_id =p.product_id ;
+

@@ -52,3 +52,4 @@ from (
 ) a
 where   num = next_num 
 and     num = prev_num;
+
